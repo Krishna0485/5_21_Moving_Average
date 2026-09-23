@@ -1,0 +1,995 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Delta India — 5 MA × 21 EMA Cross Scanner</title>
+<style>
+  :root{
+    --bg:#0a0e1a;--panel:#111827;--border:#1f2937;--accent:#3b82f6;
+    --green:#22c55e;--red:#ef4444;--yellow:#f59e0b;--text:#e2e8f0;
+    --muted:#94a3b8;--card:#161d2e;--orange:#fb923c;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:'Segoe UI',system-ui,sans-serif;font-size:13px;min-height:100vh}
+  button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+
+  /* ── TOP BAR ── */
+  .topbar{background:var(--panel);border-bottom:1px solid var(--border);
+    display:flex;align-items:center;justify-content:space-between;
+    padding:10px 20px;flex-wrap:wrap;gap:10px}
+  .topbar h1{font-size:16px;font-weight:700;color:var(--accent);letter-spacing:.5px}
+  .topbar h1 span{color:var(--orange)}
+  .controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  select,button,input[type=number],input[type=text],input[type=password]{
+    background:#1e293b;border:1px solid var(--border);color:var(--text);
+    padding:5px 10px;border-radius:6px;font-size:12px;font-family:inherit}
+  select,button{cursor:pointer}
+  button.primary{background:var(--accent);border-color:var(--accent);font-weight:600}
+  button.primary:hover{background:#2563eb}
+  button.stop{background:#7f1d1d;border-color:#991b1b}
+  button.ghost:hover{border-color:var(--accent)}
+  .status-dot{width:8px;height:8px;border-radius:50%;background:#4b5563;display:inline-block;margin-right:4px}
+  .status-dot.scanning{background:var(--green);animation:pulse 1s infinite}
+  .status-dot.idle{background:var(--yellow)}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+  .inline-chk{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--muted);cursor:pointer}
+
+  .chips{display:flex;gap:4px;flex-wrap:wrap}
+  .chip input{display:none}
+  .chip span{display:inline-block;padding:4px 9px;border-radius:6px;border:1px solid var(--border);
+    background:#1e293b;color:var(--muted);font-size:12px;cursor:pointer;user-select:none}
+  .chip input:checked+span{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+  .chip input:focus-visible+span{outline:2px solid var(--accent);outline-offset:1px}
+
+  /* ── SETTINGS ── */
+  details.settings{background:var(--panel);border-bottom:1px solid var(--border)}
+  details.settings summary{padding:8px 20px;cursor:pointer;color:var(--muted);font-size:12px;user-select:none}
+  details.settings[open] summary{color:var(--text)}
+  .setgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px;padding:4px 20px 14px}
+  .grp{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px 12px;display:flex;flex-direction:column;gap:7px}
+  .grp h3{font-size:12px;color:var(--accent);font-weight:600;margin-bottom:2px}
+  .grp label{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
+  .grp label input[type=number],.grp label input[type=text],.grp label input[type=password]{width:88px;padding:3px 6px}
+  .grp label.chk{justify-content:flex-start;gap:6px;cursor:pointer}
+  .grp .note{font-size:11px;color:#64748b;line-height:1.4}
+
+  /* ── STATS ── */
+  .statsrow{display:flex;gap:12px;padding:12px 20px;flex-wrap:wrap;border-bottom:1px solid var(--border)}
+  .stat{background:var(--card);border:1px solid var(--border);border-radius:8px;
+    padding:8px 16px;min-width:120px;text-align:center}
+  .stat .val{font-size:22px;font-weight:700;line-height:1.2}
+  .stat .lbl{font-size:11px;color:var(--muted);margin-top:2px}
+  .stat.g .val{color:var(--green)} .stat.r .val{color:var(--red)}
+  .stat.y .val{color:var(--yellow)} .stat.b .val{color:var(--accent)}
+
+  #progress-bar-wrap{height:3px;background:var(--border)}
+  #progress-bar{height:100%;background:var(--accent);width:0%;transition:width .2s}
+  #scan-info{font-size:11px;color:var(--muted);padding:4px 20px;background:var(--panel);border-bottom:1px solid var(--border)}
+
+  /* ── FILTERS ── */
+  .filterbar{display:flex;gap:8px;align-items:center;padding:8px 20px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+  .filterbar label{font-size:11px;color:var(--muted)}
+  .filterbar input[type=text]{width:130px}
+  .filterbar input[type=range]{width:90px;accent-color:var(--accent)}
+  .fval{font-size:11px;color:var(--accent);min-width:26px}
+
+  /* ── TABS ── */
+  .tabs{display:flex;padding:0 20px;border-bottom:1px solid var(--border);margin-top:8px}
+  .tab{padding:8px 18px;cursor:pointer;border-bottom:2px solid transparent;font-size:12px;color:var(--muted);user-select:none}
+  .tab.active{color:var(--text);border-color:var(--accent)}
+  .tab .cnt{display:inline-block;background:#1e293b;border-radius:10px;padding:1px 7px;font-size:11px;margin-left:5px}
+
+  /* ── TABLE ── */
+  .table-wrap{padding:12px 20px;overflow-x:auto}
+  table{width:100%;border-collapse:collapse;font-size:12px}
+  thead th{background:#1a2235;color:var(--muted);padding:8px 10px;text-align:left;
+    border-bottom:1px solid var(--border);white-space:nowrap;cursor:pointer;user-select:none;font-weight:600}
+  thead th:hover{color:var(--text)}
+  thead th.nosort{cursor:default}
+  tbody tr{border-bottom:1px solid #151e2e;transition:background .15s}
+  tbody tr:hover{background:#1a2235}
+  td{padding:7px 10px;white-space:nowrap}
+  .badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600}
+  .badge.buy{background:rgba(34,197,94,.15);color:var(--green);border:1px solid rgba(34,197,94,.3)}
+  .badge.sell{background:rgba(239,68,68,.15);color:var(--red);border:1px solid rgba(239,68,68,.3)}
+  .badge.cross{background:rgba(59,130,246,.15);color:#60a5fa;border:1px solid rgba(59,130,246,.3)}
+  .badge.near{background:rgba(245,158,11,.15);color:var(--yellow);border:1px solid rgba(245,158,11,.3)}
+  .badge.mtf{background:rgba(168,85,247,.15);color:#c084fc;border:1px solid rgba(168,85,247,.3)}
+  .badge.tf{background:#1e293b;color:var(--text);border:1px solid var(--border)}
+  .score{display:inline-block;min-width:34px;text-align:center;padding:2px 7px;border-radius:10px;font-weight:700;font-size:11px}
+  .score.hi{background:rgba(34,197,94,.18);color:var(--green)}
+  .score.mid{background:rgba(245,158,11,.18);color:var(--yellow)}
+  .score.lo{background:#1e293b;color:var(--muted)}
+  .vol-ok{color:var(--green)} .vol-no{color:#64748b}
+  .empty{text-align:center;padding:40px;color:var(--muted);font-size:13px}
+  @keyframes newrow{0%{background:#1e3a5f}100%{background:transparent}}
+  .new-row{animation:newrow 2s ease-out forwards}
+  @media (prefers-reduced-motion:reduce){.new-row{animation:none}.status-dot.scanning{animation:none}}
+
+  /* ── DETAIL ── */
+  .detail-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:100;align-items:center;justify-content:center}
+  .detail-overlay.open{display:flex}
+  .detail-box{background:#111827;border:1px solid var(--border);border-radius:12px;
+    width:min(560px,96vw);max-height:92vh;overflow-y:auto;padding:20px}
+  .detail-box h2{font-size:15px;margin-bottom:12px;display:flex;justify-content:space-between;gap:10px}
+  .detail-close{cursor:pointer;color:var(--muted);font-size:18px;line-height:1}
+  .dl-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 12px}
+  .dl-row{display:flex;flex-direction:column}
+  .dl-row .k{font-size:11px;color:var(--muted)}
+  .dl-row .v{font-size:13px;font-weight:600;font-family:Consolas,monospace}
+  .dl-divider{border:none;border-top:1px solid var(--border);margin:12px 0}
+  .trade-box{background:#0d1321;border-radius:8px;padding:12px;margin-top:8px}
+  .trade-box h4{font-size:12px;color:var(--accent);margin-bottom:6px}
+  .trade-box .trow{display:flex;justify-content:space-between;gap:10px;padding:3px 0;font-size:12px}
+  .trade-box .trow .tk{color:var(--muted)}
+  .warn{background:rgba(239,68,68,.12);border:1px solid rgba(239,68,68,.35);color:#fca5a5;border-radius:6px;padding:6px 10px;font-size:11px;margin-top:6px}
+  canvas#d-chart{width:100%;height:200px;background:#0d1321;border-radius:8px;display:block}
+  .legend{display:flex;gap:14px;font-size:11px;color:var(--muted);margin-top:6px;flex-wrap:wrap}
+  .legend i{display:inline-block;width:14px;height:3px;border-radius:2px;margin-right:5px;vertical-align:middle}
+
+  #log{font-size:11px;color:var(--muted);padding:8px 20px 6px;font-family:Consolas,monospace;
+    border-top:1px solid var(--border);max-height:90px;overflow-y:auto;background:var(--panel);white-space:pre-wrap}
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <h1>Delta India — <span>5 MA × 21 EMA cross scanner</span></h1>
+  <div class="controls">
+    <span><span class="status-dot idle" id="dot"></span><span id="status-txt">Idle</span></span>
+    <select id="src-sel" title="Candle price source">
+      <option value="mark" selected>Mark price</option>
+      <option value="traded">Traded price</option>
+    </select>
+    <div class="chips" id="tf-chips" aria-label="Timeframes"></div>
+    <select id="loop-sel" title="Auto-scan">
+      <option value="0">One-shot</option>
+      <option value="close" selected>Auto: at candle close</option>
+      <option value="5">Loop 5 min</option>
+      <option value="15">Loop 15 min</option>
+      <option value="30">Loop 30 min</option>
+      <option value="60">Loop 60 min</option>
+    </select>
+    <button class="primary" id="scan-btn" onclick="startScan()">▶ Scan now</button>
+    <button class="stop" id="stop-btn" onclick="stopScan()" style="display:none">■ Stop</button>
+  </div>
+</div>
+
+<!-- PROGRESS -->
+<div id="progress-bar-wrap"><div id="progress-bar"></div></div>
+<div id="scan-info">Ready — pick timeframes and click Scan now. Matches TradingView's "MA/EMA Cross" indicator (Length MA 5, Length EMA 21).</div>
+
+<!-- SETTINGS -->
+<details class="settings" open>
+  <summary>⚙ Advanced settings (saved in this browser)</summary>
+  <div class="setgrid">
+    <div class="grp">
+      <h3>Indicator lengths</h3>
+      <label>Length MA (simple)<input type="number" id="ma-len" value="5" min="2" max="200" step="1"/></label>
+      <label>Length EMA<input type="number" id="ema-len" value="21" min="2" max="500" step="1"/></label>
+      <div class="note">Matches TradingView's built-in "MA/EMA Cross" indicator inputs — change these if you use different lengths.</div>
+    </div>
+    <div class="grp">
+      <h3>Signal rules</h3>
+      <label>Cross lookback (bars)<input type="number" id="lookback" value="3" min="1" max="20" step="1"/></label>
+      <label>Near cross: gap ≤ %<input type="number" id="near-pct" value="0.3" min="0.01" step="0.05"/></label>
+      <label>Near cross: ETA ≤ bars<input type="number" id="near-eta" value="15" min="1" step="1"/></label>
+      <label>Min ATR %<input type="number" id="min-atr" value="0.1" min="0" step="0.05"/></label>
+      <label class="chk"><input type="checkbox" id="closed-chk" checked/> Closed candles only (no repainting)</label>
+      <label class="chk"><input type="checkbox" id="confirm-chk"/> Price must be beyond both lines</label>
+      <label class="chk"><input type="checkbox" id="deep-chk"/> Extended history (600 bars, steadier EMA)</label>
+    </div>
+    <div class="grp">
+      <h3>Trade levels (ATR based)</h3>
+      <label>Stop loss × ATR<input type="number" id="sl-mult" value="1.5" min="0.1" step="0.1"/></label>
+      <label>Target 1 × ATR<input type="number" id="tp1-mult" value="2" min="0.1" step="0.1"/></label>
+      <label>Target 2 × ATR<input type="number" id="tp2-mult" value="3" min="0.1" step="0.1"/></label>
+      <label>Min TP2 % (crossovers)<input type="number" id="min-tp" value="0.3" min="0" step="0.05"/></label>
+    </div>
+    <div class="grp">
+      <h3>Risk &amp; position size</h3>
+      <label>Capital ($)<input type="number" id="capital" value="1000" min="1" step="50"/></label>
+      <label>Risk per trade (%)<input type="number" id="risk-pct" value="1" min="0.1" step="0.1"/></label>
+      <label>Leverage (×)<input type="number" id="leverage" value="10" min="1" step="1"/></label>
+      <div class="note">Shown in each signal's detail window. Estimates only — check contract size, fees and margin on Delta before ordering.</div>
+    </div>
+    <div class="grp">
+      <h3>Alerts</h3>
+      <label class="chk"><input type="checkbox" id="snd-chk" checked/> Sound on new signal</label>
+      <label class="chk"><input type="checkbox" id="notif-chk"/> Browser notification</label>
+      <label class="chk"><input type="checkbox" id="alert-near"/> Also alert on near crosses</label>
+      <label>Telegram bot token<input type="password" id="tg-token" placeholder="optional" autocomplete="off"/></label>
+      <label>Telegram chat ID<input type="text" id="tg-chat" placeholder="optional" autocomplete="off"/></label>
+      <button class="ghost" onclick="testAlert()">Send test alert</button>
+    </div>
+  </div>
+</details>
+
+<!-- STATS -->
+<div class="statsrow">
+  <div class="stat b"><div class="val" id="s-total">—</div><div class="lbl">Pairs scanned</div></div>
+  <div class="stat g"><div class="val" id="s-cbuy">0</div><div class="lbl">🔥 Bull cross (buy)</div></div>
+  <div class="stat r"><div class="val" id="s-csell">0</div><div class="lbl">🔥 Bear cross (sell)</div></div>
+  <div class="stat y"><div class="val" id="s-nbuy">0</div><div class="lbl">👀 Near buy</div></div>
+  <div class="stat y"><div class="val" id="s-nsell">0</div><div class="lbl">👀 Near sell</div></div>
+  <div class="stat" title="Pairs with too little history for the EMA length you set are skipped"><div class="val" id="s-skip" style="color:var(--muted)">0</div><div class="lbl">Skipped (short history)</div></div>
+  <div class="stat" style="margin-left:auto"><div class="val" id="s-time" style="font-size:13px;color:var(--muted)">—</div><div class="lbl">Last scan</div></div>
+</div>
+
+<!-- FILTER BAR -->
+<div class="filterbar">
+  <label for="sym-filter">Search</label>
+  <input type="text" id="sym-filter" placeholder="e.g. BTC, ETH…" oninput="renderTable()"/>
+  <label for="sig-filter">Signal</label>
+  <select id="sig-filter" onchange="renderTable()">
+    <option value="ALL">All</option><option value="BUY">Buy only</option><option value="SELL">Sell only</option>
+  </select>
+  <label for="tf-filter">Timeframe</label>
+  <select id="tf-filter" onchange="renderTable()"><option value="ALL">All</option></select>
+  <label for="score-filter">Min score</label>
+  <input type="range" id="score-filter" min="0" max="100" step="5" value="0" oninput="document.getElementById('score-val').textContent=this.value;renderTable()"/>
+  <span class="fval" id="score-val">0</span>
+  <label class="inline-chk"><input type="checkbox" id="vol-filter" onchange="renderTable()"/> Volume spike only</label>
+  <label class="inline-chk"><input type="checkbox" id="mtf-filter" onchange="renderTable()"/> Multi-timeframe only</label>
+  <button class="ghost" style="margin-left:auto" onclick="exportCSV()">⬇ Export CSV</button>
+</div>
+
+<!-- TABS -->
+<div class="tabs">
+  <div class="tab active" id="tab-all"   onclick="switchTab('all')">All signals <span class="cnt" id="cnt-all">0</span></div>
+  <div class="tab"        id="tab-cross" onclick="switchTab('cross')">🔥 Crossover <span class="cnt" id="cnt-cross">0</span></div>
+  <div class="tab"        id="tab-near"  onclick="switchTab('near')">👀 Near cross <span class="cnt" id="cnt-near">0</span></div>
+</div>
+
+<!-- TABLE -->
+<div class="table-wrap">
+  <table id="sig-table">
+    <thead>
+      <tr>
+        <th onclick="sortBy('sym')">Pair ⇅</th>
+        <th onclick="sortBy('tf')">TF ⇅</th>
+        <th onclick="sortBy('price')">Price ⇅</th>
+        <th onclick="sortBy('maF')">MA 5 ⇅</th>
+        <th onclick="sortBy('emaS')">EMA 21 ⇅</th>
+        <th onclick="sortBy('gap_abs')">Gap % ⇅</th>
+        <th onclick="sortBy('when')">Cross / ETA ⇅</th>
+        <th onclick="sortBy('atr_pct')">ATR % ⇅</th>
+        <th class="nosort">Volume</th>
+        <th onclick="sortBy('type')">Type ⇅</th>
+        <th onclick="sortBy('signal')">Signal ⇅</th>
+        <th onclick="sortBy('score')">Score ⇅</th>
+        <th onclick="sortBy('mtf')">MTF ⇅</th>
+        <th onclick="sortBy('tp2_p')">TP2 % ⇅</th>
+        <th onclick="sortBy('sl_p')">SL % ⇅</th>
+        <th onclick="sortBy('rr')">R:R ⇅</th>
+        <th class="nosort">Detail</th>
+      </tr>
+    </thead>
+    <tbody id="sig-body">
+      <tr><td colspan="17" class="empty">No scan run yet. Click ▶ Scan now to begin.</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div id="log">Console log will appear here…</div>
+
+<!-- DETAIL OVERLAY -->
+<div class="detail-overlay" id="detail-overlay" onclick="if(event.target===this)closeDetail()">
+  <div class="detail-box" role="dialog" aria-modal="true">
+    <h2><span id="d-title">Signal detail</span><span class="detail-close" onclick="closeDetail()" title="Close (Esc)">✕</span></h2>
+    <div id="d-content"></div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+//  CONFIG
+// ═══════════════════════════════════════════════════════════════
+const $ = id => document.getElementById(id);
+const DELTA_BASE  = "https://api.india.delta.exchange";
+const CHUNK        = 1990;      // Delta caps a single history request at ~2000 candles
+const CONCURRENCY  = 6;
+const STORE        = "delta_ma5_ema21_v1";
+const MINS_MAP = {"1m":1,"3m":3,"5m":5,"15m":15,"30m":30,"1h":60,"2h":120,"4h":240,"6h":360,"1d":1440};
+const ALL_TFS  = Object.keys(MINS_MAP);
+const FIELDS = ["src-sel","loop-sel","ma-len","ema-len","deep-chk","closed-chk","confirm-chk","lookback","near-pct","near-eta",
+  "min-atr","sl-mult","tp1-mult","tp2-mult","min-tp","capital","risk-pct","leverage",
+  "snd-chk","notif-chk","alert-near","tg-token","tg-chat"];
+
+// ═══════════════════════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════════════════════
+let allSignals = [], uid = 0;
+let sortKey = "score", sortDir = -1, activeTab = "all";
+let scanAborted = false, scanning = false;
+let loopTimer = null, cdTimer = null, nextAt = 0;
+let prevKeys = new Set();
+let cvMap = {};
+let skippedShort = 0;
+let rafPending = false;
+
+// ═══════════════════════════════════════════════════════════════
+//  UTILS
+// ═══════════════════════════════════════════════════════════════
+function fmtPrice(p){
+  if(p==null||isNaN(p)||p===0) return "$0";
+  if(p>=10000) return "$"+p.toLocaleString("en-US",{minimumFractionDigits:1,maximumFractionDigits:1});
+  if(p>=1000)  return "$"+p.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
+  if(p>=100)   return "$"+p.toFixed(3);
+  if(p>=1)     return "$"+p.toFixed(4);
+  if(p>=0.1)   return "$"+p.toFixed(5);
+  if(p>=0.01)  return "$"+p.toFixed(6);
+  if(p>=0.001) return "$"+p.toFixed(7);
+  return "$"+p.toFixed(8);
+}
+function fmtSym(sym){
+  if(sym.endsWith("USD")&&!sym.endsWith("USDT")) return sym.slice(0,-3)+"/USD";
+  return sym;
+}
+function fmtDur(mins){
+  mins=Math.round(mins);
+  if(mins<60) return mins+"m";
+  if(mins<1440){ const h=Math.floor(mins/60), m=mins%60; return m?`${h}h ${m}m`:`${h}h`; }
+  const d=Math.floor(mins/1440), h=Math.round((mins%1440)/60); return h?`${d}d ${h}h`:`${d}d`;
+}
+const round = (v,d)=>Math.round(v*Math.pow(10,d))/Math.pow(10,d);
+const sleep = ms => new Promise(r=>setTimeout(r,ms));
+function log(msg){ $("log").textContent=`[${new Date().toLocaleTimeString()}] ${msg}`; }
+function selectedTfs(){ return [...document.querySelectorAll("#tf-chips input:checked")].map(i=>i.value); }
+function cfg(){
+  const n=(id,d)=>{ const v=parseFloat($(id).value); return isNaN(v)?d:v; };
+  return {
+    src:$("src-sel").value, deep:$("deep-chk").checked, closedOnly:$("closed-chk").checked,
+    priceConfirm:$("confirm-chk").checked,
+    maLen:Math.max(2,Math.round(n("ma-len",5))), emaLen:Math.max(2,Math.round(n("ema-len",21))),
+    lookback:Math.max(1,Math.round(n("lookback",3))),
+    nearPct:n("near-pct",0.3), nearEta:n("near-eta",15), minAtr:n("min-atr",0.1),
+    slM:n("sl-mult",1.5), tp1M:n("tp1-mult",2), tp2M:n("tp2-mult",3), minTp:n("min-tp",0.3),
+    capital:n("capital",1000), riskPct:n("risk-pct",1), lev:Math.max(1,n("leverage",10))
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  SETTINGS PERSISTENCE
+// ═══════════════════════════════════════════════════════════════
+function saveSettings(){
+  try{
+    const o={tfs:selectedTfs()};
+    FIELDS.forEach(id=>{ const el=$(id); o[id]=el.type==="checkbox"?el.checked:el.value; });
+    localStorage.setItem(STORE,JSON.stringify(o));
+  }catch(e){}
+}
+function loadSettings(){
+  let o=null;
+  try{ o=JSON.parse(localStorage.getItem(STORE)||"null"); }catch(e){}
+  if(!o) return;
+  FIELDS.forEach(id=>{
+    if(!(id in o)) return;
+    const el=$(id);
+    if(el.type==="checkbox") el.checked=!!o[id]; else el.value=o[id];
+  });
+  if(Array.isArray(o.tfs)&&o.tfs.length){
+    document.querySelectorAll("#tf-chips input").forEach(i=>{ i.checked=o.tfs.includes(i.value); });
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  API
+// ═══════════════════════════════════════════════════════════════
+async function getProducts(){
+  const r=await fetch(`${DELTA_BASE}/v2/products?contract_types=perpetual_futures`,{headers:{Accept:"application/json"}});
+  const j=await r.json();
+  return (j.result||[])
+    .filter(p=>p.contract_type==="perpetual_futures" && (!p.trading_status||p.trading_status==="operational"))
+    .map(p=>({symbol:p.symbol, cv:parseFloat(p.contract_value)||0}));
+}
+async function fetchChunk(apiSym,res,start,end){
+  const url=`${DELTA_BASE}/v2/history/candles?symbol=${encodeURIComponent(apiSym)}&resolution=${res}&start=${start}&end=${end}`;
+  for(let a=0;a<3;a++){
+    try{
+      const r=await fetch(url,{headers:{Accept:"application/json"}});
+      if(r.status===429){ await sleep(800*(a+1)); continue; }
+      if(!r.ok) return null;
+      const j=await r.json();
+      return (j.result||[]).map(c=>({
+        time:parseInt(c.time), open:parseFloat(c.open), high:parseFloat(c.high),
+        low:parseFloat(c.low), close:parseFloat(c.close), vol:parseFloat(c.volume)||0
+      })).filter(c=>!isNaN(c.close)&&c.close>0);
+    }catch(e){ await sleep(300); }
+  }
+  return null;
+}
+async function fetchCandles(apiSym,res,want){
+  const resSec=MINS_MAP[res]*60;
+  let end=Math.floor(Date.now()/1000), remaining=want, all=[];
+  while(remaining>0){
+    const n=Math.min(CHUNK,remaining);
+    const start=end-resSec*n;
+    const chunk=await fetchChunk(apiSym,res,start,end);
+    if(chunk===null){ if(!all.length) return null; break; }
+    if(!chunk.length) break;
+    all=all.concat(chunk);
+    remaining-=n; end=start;
+    if(chunk.length<n*0.9) break;
+  }
+  const seen=new Map();
+  all.forEach(c=>seen.set(c.time,c));
+  return [...seen.values()].sort((a,b)=>a.time-b.time);
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  INDICATORS
+// ═══════════════════════════════════════════════════════════════
+function sma(arr,len){
+  return arr.map((_,i)=>{
+    if(i<len-1) return NaN;
+    let s=0; for(let k=i-len+1;k<=i;k++) s+=arr[k];
+    return s/len;
+  });
+}
+// EMA seeded with the SMA of the first `len` values (same as TradingView's ta.ema)
+function ema(arr,len){
+  const out=new Array(arr.length).fill(NaN);
+  if(arr.length<len) return out;
+  const k=2/(len+1);
+  let s=0; for(let i=0;i<len;i++) s+=arr[i];
+  out[len-1]=s/len;
+  for(let i=len;i<arr.length;i++) out[i]=arr[i]*k+out[i-1]*(1-k);
+  return out;
+}
+function rollingMean(arr,len){
+  return arr.map((_,i)=>{
+    if(i<len-1) return NaN;
+    let s=0; for(let k=i-len+1;k<=i;k++) s+=arr[k];
+    return s/len;
+  });
+}
+function atr14(highs,lows,closes){
+  const tr=closes.map((_,i)=>{
+    if(i===0) return highs[i]-lows[i];
+    return Math.max(highs[i]-lows[i],Math.abs(highs[i]-closes[i-1]),Math.abs(lows[i]-closes[i-1]));
+  });
+  const out=new Array(closes.length).fill(NaN);
+  if(tr.length<14) return out;
+  let init=0; for(let i=0;i<14;i++) init+=tr[i];
+  out[13]=init/14;
+  for(let i=14;i<tr.length;i++) out[i]=(out[i-1]*13+tr[i])/14;
+  return out;
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  SCORING (0-100)
+//  freshness/proximity 30 · candle confirmation 20 · EMA slope 20 · ATR 15 · volume 15 (traded only)
+// ═══════════════════════════════════════════════════════════════
+function score(p){
+  let got=0,max=0;
+  max+=30;
+  if(p.type==="CROSSOVER") got+=[30,24,18,12,8][Math.min(p.barsAgo,4)];
+  else got+=Math.max(0,22-p.eta*0.7);
+  max+=20; if(p.confirm) got+=20;
+  max+=20; if(p.slopeOk) got+=20;
+  max+=15; got+=Math.min(15,p.atrPct/Math.max(p.minAtr*2,0.05)*15);
+  if(p.volAvail){ max+=15; if(p.volSpike) got+=15; }
+  return Math.round(got/max*100);
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  SIGNAL LOGIC — MA(5, simple) × EMA(21) only
+// ═══════════════════════════════════════════════════════════════
+function minBarsFor(o){ return Math.max(o.maLen,o.emaLen)*3+20; }
+
+function evaluate(rowsIn,tf,o){
+  let rows=rowsIn;
+  const tfSec=MINS_MAP[tf]*60;
+  if(o.closedOnly && rows.length && rows[rows.length-1].time+tfSec>Date.now()/1000) rows=rows.slice(0,-1);
+  const minBars=minBarsFor(o);
+  if(rows.length<minBars) return {status:"short"};
+
+  const closes=rows.map(r=>r.close), opens=rows.map(r=>r.open),
+        highs=rows.map(r=>r.high), lows=rows.map(r=>r.low), vols=rows.map(r=>r.vol);
+  const maF=sma(closes,o.maLen), emaS=ema(closes,o.emaLen);
+  const atrArr=atr14(highs,lows,closes);
+  const avgVol=rollingMean(vols,20);
+  const n=rows.length-1;
+  const price=closes[n], atr=atrArr[n];
+  if(!(price>0)||!(atr>0)||isNaN(maF[n])||isNaN(emaS[n])) return {status:"none"};
+
+  const atrPct=atr/price*100;
+  if(atrPct<o.minAtr) return {status:"none"};
+
+  const diff=closes.map((_,i)=>maF[i]-emaS[i]);
+  const gapPct=(maF[n]-emaS[n])/emaS[n]*100;
+  const volAvail=o.src==="traded";
+  const volSpike=volAvail && avgVol[n]>0 && vols[n]>=avgVol[n]*1.2;
+  const slopeLen=Math.min(10,Math.max(3,Math.round(o.emaLen/3)));
+  const slope=!isNaN(emaS[n-slopeLen])&&emaS[n-slopeLen]!==0
+    ? (emaS[n]-emaS[n-slopeLen])/emaS[n-slopeLen]*100 : 0;
+
+  function levels(dir){
+    const s=dir==="BUY"?-1:1;
+    const sl=price+s*atr*o.slM, tp1=price-s*atr*o.tp1M, tp2=price-s*atr*o.tp2M;
+    const slP=round(Math.abs(sl-price)/price*100,3);
+    const tp1P=round(Math.abs(tp1-price)/price*100,3);
+    const tp2P=round(Math.abs(tp2-price)/price*100,3);
+    return {sl,tp1,tp2,sl_p:slP,tp1_p:tp1P,tp2_p:tp2P,rr:slP>0?round(tp2P/slP,2):0};
+  }
+  function finish(type,dir,x){
+    const lv=levels(dir);
+    const confirm=dir==="BUY"?(closes[n]>opens[n]&&closes[n]>maF[n]):(closes[n]<opens[n]&&closes[n]<maF[n]);
+    const slopeOk=dir==="BUY"?slope>=0:slope<=0;
+    const sc=score({type,barsAgo:x.barsAgo,eta:x.eta,confirm,slopeOk,atrPct,volAvail,volSpike,minAtr:o.minAtr});
+    const start=Math.max(0,n-159);
+    return {type,signal:dir,...lv,price,maF:maF[n],emaS:emaS[n],
+      gap_pct:round(gapPct,4),atr,atr_pct:round(atrPct,3),
+      vol_spike:volSpike,vol_avail:volAvail,confirm,slopeOk,slope:round(slope,3),score:sc,
+      when:type==="CROSSOVER"?x.barsAgo:x.eta,barsAgo:x.barsAgo,eta:x.eta,
+      crossTime:x.crossTime||0,bars:rows.length,
+      series:{c:closes.slice(start),maF:maF.slice(start),emaS:emaS.slice(start)},
+      crossIdx:x.crossIdx!=null?x.crossIdx-start:-1};
+  }
+
+  // 1) Fresh crossover within the lookback window (most recent first)
+  let cross=null;
+  for(let k=0;k<o.lookback;k++){
+    const i=n-k;
+    if(i<1||isNaN(diff[i])||isNaN(diff[i-1])) break;
+    if(diff[i-1]<=0&&diff[i]>0){ cross={dir:"BUY",k,i}; break; }
+    if(diff[i-1]>=0&&diff[i]<0){ cross={dir:"SELL",k,i}; break; }
+  }
+  if(cross){
+    const buy=cross.dir==="BUY";
+    const okPrice=!o.priceConfirm||(buy?(price>maF[n]&&price>emaS[n]):(price<maF[n]&&price<emaS[n]));
+    if(okPrice){
+      const sig=finish("CROSSOVER",cross.dir,{barsAgo:cross.k,eta:0,crossTime:rows[cross.i].time,crossIdx:cross.i});
+      if(sig.tp2_p>=o.minTp) return {status:"ok",sig};
+    }
+    return {status:"none"};
+  }
+
+  // 2) Near cross: small gap, same side as 3 bars ago, and closing in — with an ETA
+  if(Math.abs(gapPct)<=o.nearPct){
+    const d0=diff[n], d3=diff[n-3];
+    if(!isNaN(d3)&&d0!==0&&Math.sign(d0)===Math.sign(d3)&&Math.abs(d0)<Math.abs(d3)){
+      const speed=(Math.abs(d3)-Math.abs(d0))/3;
+      const eta=Math.abs(d0)/speed;
+      if(eta<=o.nearEta){
+        return {status:"ok",sig:finish("NEAR CROSS",d0<0?"BUY":"SELL",{barsAgo:0,eta})};
+      }
+    }
+  }
+  return {status:"none"};
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  SCAN ENGINE
+// ═══════════════════════════════════════════════════════════════
+async function pool(items,worker,conc){
+  let idx=0;
+  const runners=Array.from({length:conc},async()=>{
+    while(!scanAborted){
+      const i=idx++; if(i>=items.length) break;
+      await worker(items[i],i);
+    }
+  });
+  await Promise.all(runners);
+}
+function clearTimers(){
+  if(loopTimer){ clearTimeout(loopTimer); loopTimer=null; }
+  if(cdTimer){ clearInterval(cdTimer); cdTimer=null; }
+  nextAt=0;
+}
+
+async function runScan(){
+  if(scanning) return;
+  const tfs=selectedTfs();
+  if(!tfs.length){ log("⚠ Select at least one timeframe."); return; }
+  const c=cfg();
+  scanning=true; scanAborted=false; allSignals=[]; skippedShort=0;
+  clearTimers();
+  let failed=0;
+
+  $("dot").className="status-dot scanning";
+  $("status-txt").textContent="Fetching pairs…";
+  $("scan-btn").style.display="none";
+  $("stop-btn").style.display="inline-block";
+  $("s-total").textContent="…";
+  setProgress(0);
+  refreshTfFilter(tfs);
+  renderTable();
+
+  log("Fetching perpetual pairs from Delta India…");
+  let products;
+  try{ products=await getProducts(); }
+  catch(e){ log("❌ Could not fetch pairs: "+e+" — open this file directly in your browser (not inside a preview pane)."); scanning=false; stopScan(true); return; }
+  if(scanAborted){ scanning=false; return; }
+
+  cvMap={}; products.forEach(p=>{ cvMap[p.symbol]=p.cv; });
+  const jobs=[];
+  products.forEach(p=>tfs.forEach(tf=>jobs.push({sym:p.symbol,tf})));
+  const total=jobs.length;
+  const base=Math.max(300,minBarsFor(c)+40);
+  const want=c.deep?base*2:base;
+  let done=0, found=0;
+  const newKeys=new Set(), fresh=[];
+  log(`${products.length} pairs × ${tfs.length} timeframe(s) = ${total} scans on ${c.src==="mark"?"mark":"traded"} price (MA ${c.maLen} × EMA ${c.emaLen})…`);
+
+  await pool(jobs,async job=>{
+    const apiSym=c.src==="mark"?"MARK:"+job.sym:job.sym;
+    const rows=await fetchCandles(apiSym,job.tf,want);
+    done++;
+    setProgress(Math.round(done/total*100));
+    $("scan-info").textContent=`Scanning ${done}/${total}  |  Signals: ${found}  |  Short history: ${skippedShort}  |  Failed: ${failed}`;
+    if(!rows){ failed++; return; }
+    const res=evaluate(rows,job.tf,c);
+    if(res.status==="short"){ skippedShort++; return; }
+    if(res.status!=="ok") return;
+    const s=res.sig;
+    const key=`${job.sym}|${job.tf}|${s.type}|${s.signal}|${s.type==="CROSSOVER"?s.crossTime:""}`;
+    const isNew=!prevKeys.has(key);
+    newKeys.add(key);
+    const row={id:++uid,sym:job.sym,tf:job.tf,s,isNew,key};
+    allSignals.push(row);
+    if(isNew) fresh.push(row);
+    found++;
+    scheduleRender();
+  },CONCURRENCY);
+
+  if(scanAborted){ scanning=false; renderTable(); return; }
+
+  prevKeys=newKeys;
+  const now=new Date().toLocaleTimeString();
+  $("s-total").textContent=products.length;
+  $("s-skip").textContent=skippedShort;
+  $("s-time").textContent=now;
+  setProgress(100);
+  $("dot").className="status-dot idle";
+  $("status-txt").textContent="Idle";
+  $("scan-btn").style.display="inline-block";
+  $("stop-btn").style.display="none";
+  $("scan-info").textContent=`Scan complete — ${products.length} pairs · ${tfs.join(", ")} · ${found} signals · ${skippedShort} skipped (short history) · ${failed} failed · ${now}`;
+  log(`✅ Done. ${found} signals, ${fresh.length} new. ${skippedShort} scans skipped because the pair has < ${minBarsFor(c)} candles.`);
+  scanning=false;
+  renderTable();
+  fireAlerts(fresh);
+  scheduleNext();
+}
+
+function scheduleNext(){
+  const v=$("loop-sel").value;
+  if(v==="0"||scanAborted) return;
+  let ms;
+  if(v==="close"){
+    const minTf=Math.min(...selectedTfs().map(t=>MINS_MAP[t]));
+    const step=minTf*60000;
+    ms=(Math.floor(Date.now()/step)+1)*step+8000-Date.now();
+  }else ms=parseInt(v)*60000;
+  nextAt=Date.now()+ms;
+  loopTimer=setTimeout(runScan,ms);
+  cdTimer=setInterval(()=>{
+    const left=Math.max(0,Math.round((nextAt-Date.now())/1000));
+    if(!scanning) $("status-txt").textContent=`Next scan in ${Math.floor(left/60)}:${String(left%60).padStart(2,"0")}`;
+  },1000);
+}
+
+function startScan(){ clearTimers(); saveSettings(); runScan(); }
+function stopScan(silent){
+  scanAborted=true; scanning=false;
+  clearTimers();
+  $("dot").className="status-dot idle";
+  $("status-txt").textContent="Stopped";
+  $("scan-btn").style.display="inline-block";
+  $("stop-btn").style.display="none";
+  if(!silent) log("⏹ Scan stopped by user.");
+}
+function setProgress(pct){ $("progress-bar").style.width=pct+"%"; }
+
+// ═══════════════════════════════════════════════════════════════
+//  ALERTS
+// ═══════════════════════════════════════════════════════════════
+function beep(){
+  try{
+    const ac=new (window.AudioContext||window.webkitAudioContext)();
+    const o=ac.createOscillator(), g=ac.createGain();
+    o.connect(g); g.connect(ac.destination);
+    o.frequency.value=880; g.gain.value=0.08;
+    o.start(); setTimeout(()=>{ o.stop(); ac.close(); },250);
+  }catch(e){}
+}
+async function tgSend(text){
+  const tok=$("tg-token").value.trim(), chat=$("tg-chat").value.trim();
+  if(!tok||!chat) return;
+  try{
+    await fetch(`https://api.telegram.org/bot${tok}/sendMessage?chat_id=${encodeURIComponent(chat)}&text=${encodeURIComponent(text)}`);
+  }catch(e){ log("Telegram send failed: "+e); }
+}
+function fireAlerts(fresh){
+  const near=$("alert-near").checked;
+  const list=fresh.filter(r=>r.s.type==="CROSSOVER"||near).sort((a,b)=>b.s.score-a.s.score);
+  if(!list.length) return;
+  if($("snd-chk").checked) beep();
+  const lines=list.slice(0,10).map(r=>{
+    const s=r.s, tail=s.type==="CROSSOVER"
+      ?`SL ${fmtPrice(s.sl)} · TP2 ${fmtPrice(s.tp2)}`
+      :`ETA ~${fmtDur(s.eta*MINS_MAP[r.tf])}`;
+    return `${s.type==="CROSSOVER"?"🔥":"👀"} ${fmtSym(r.sym)} ${r.tf} ${s.signal} @ ${fmtPrice(s.price)} · score ${s.score} · ${tail}`;
+  });
+  const c=cfg();
+  const head=`MA ${c.maLen} × EMA ${c.emaLen} (${c.src==="mark"?"mark":"traded"}) — ${list.length} new`;
+  if($("notif-chk").checked&&"Notification" in window&&Notification.permission==="granted"){
+    try{ new Notification(head,{body:lines.slice(0,4).join("\n")}); }catch(e){}
+  }
+  tgSend(head+"\n"+lines.join("\n")+(list.length>10?`\n…and ${list.length-10} more`:""));
+}
+function testAlert(){
+  if($("snd-chk").checked) beep();
+  if("Notification" in window&&Notification.permission==="granted"&&$("notif-chk").checked){
+    try{ new Notification("MA 5 × EMA 21 scanner",{body:"Test alert"}); }catch(e){}
+  }
+  tgSend("MA 5 × EMA 21 scanner — test alert");
+  log("Test alert sent (sound / notification / Telegram if configured).");
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  RENDER
+// ═══════════════════════════════════════════════════════════════
+function scheduleRender(){
+  if(rafPending) return; rafPending=true;
+  requestAnimationFrame(()=>{ rafPending=false; renderTable(); });
+}
+function refreshTfFilter(tfs){
+  const cur=$("tf-filter").value;
+  $("tf-filter").innerHTML=`<option value="ALL">All</option>`+tfs.map(t=>`<option value="${t}">${t}</option>`).join("");
+  $("tf-filter").value=tfs.includes(cur)?cur:"ALL";
+}
+function updateStats(){
+  const cr=allSignals.filter(r=>r.s.type==="CROSSOVER"), nr=allSignals.filter(r=>r.s.type==="NEAR CROSS");
+  $("s-cbuy").textContent=cr.filter(r=>r.s.signal==="BUY").length;
+  $("s-csell").textContent=cr.filter(r=>r.s.signal==="SELL").length;
+  $("s-nbuy").textContent=nr.filter(r=>r.s.signal==="BUY").length;
+  $("s-nsell").textContent=nr.filter(r=>r.s.signal==="SELL").length;
+  $("cnt-all").textContent=allSignals.length;
+  $("cnt-cross").textContent=cr.length;
+  $("cnt-near").textContent=nr.length;
+  $("s-skip").textContent=skippedShort;
+}
+function sortBy(key){
+  if(sortKey===key) sortDir*=-1; else{ sortKey=key; sortDir=-1; }
+  renderTable();
+}
+function switchTab(tab){
+  activeTab=tab;
+  ["all","cross","near"].forEach(t=>{ $("tab-"+t).className="tab"+(t===tab?" active":""); });
+  renderTable();
+}
+function sortVal(r,key){
+  switch(key){
+    case "sym": return fmtSym(r.sym);
+    case "tf": return MINS_MAP[r.tf];
+    case "gap_abs": return Math.abs(r.s.gap_pct);
+    case "mtf": return r._mtf||0;
+    default: return r.s[key];
+  }
+}
+function markMtf(){
+  const conf={};
+  allSignals.forEach(r=>{ const k=r.sym+"|"+r.s.signal; (conf[k]=conf[k]||new Set()).add(r.tf); });
+  allSignals.forEach(r=>{ r._mtf=conf[r.sym+"|"+r.s.signal].size; });
+}
+function getFiltered(){
+  markMtf();
+  const sym=$("sym-filter").value.trim().toUpperCase();
+  const sig=$("sig-filter").value, tf=$("tf-filter").value;
+  const minScore=parseFloat($("score-filter").value)||0;
+  const volOk=$("vol-filter").checked, mtfOk=$("mtf-filter").checked;
+  return allSignals.filter(r=>{
+    if(activeTab==="cross"&&r.s.type!=="CROSSOVER") return false;
+    if(activeTab==="near"&&r.s.type!=="NEAR CROSS") return false;
+    if(sym&&!r.sym.includes(sym)) return false;
+    if(sig!=="ALL"&&r.s.signal!==sig) return false;
+    if(tf!=="ALL"&&r.tf!==tf) return false;
+    if(r.s.score<minScore) return false;
+    if(volOk&&!r.s.vol_spike) return false;
+    if(mtfOk&&r._mtf<2) return false;
+    return true;
+  });
+}
+function whenCell(r){
+  const s=r.s, tfm=MINS_MAP[r.tf];
+  if(s.type==="CROSSOVER") return s.barsAgo===0?`<b style="color:var(--green)">● just crossed</b>`:`${s.barsAgo} bar${s.barsAgo>1?"s":""} ago <span style="color:var(--muted)">(${fmtDur(s.barsAgo*tfm)})</span>`;
+  return `~${Math.ceil(s.eta)} bars <span style="color:var(--muted)">(${fmtDur(s.eta*tfm)})</span>`;
+}
+function renderTable(){
+  updateStats();
+  const filtered=getFiltered();
+  filtered.sort((a,b)=>{
+    const va=sortVal(a,sortKey), vb=sortVal(b,sortKey);
+    if(typeof va==="string"||typeof vb==="string") return sortDir*String(va).localeCompare(String(vb));
+    return sortDir*((va||0)-(vb||0));
+  });
+  const tbody=$("sig-body");
+  if(!filtered.length){
+    tbody.innerHTML=`<tr><td colspan="17" class="empty">${allSignals.length?"No signals match the current filters.":(scanning?"Scanning… signals appear here as they are found.":"No signals yet. Click ▶ Scan now.")}</td></tr>`;
+    return;
+  }
+  tbody.innerHTML=filtered.map((r,i)=>{
+    const s=r.s, isBuy=s.signal==="BUY", isCross=s.type==="CROSSOVER";
+    const sigBadge=isBuy?`<span class="badge buy">▲ BUY</span>`:`<span class="badge sell">▼ SELL</span>`;
+    const typeBadge=isCross?`<span class="badge cross">🔥 CROSS</span>`:`<span class="badge near">👀 NEAR</span>`;
+    const volEl=!s.vol_avail?`<span class="vol-no" title="Mark-price candles have no volume — switch to Traded price to use it">n/a</span>`
+      :(s.vol_spike?`<span class="vol-ok">✔ Spike</span>`:`<span class="vol-no">~ Normal</span>`);
+    const scCls=s.score>=70?"hi":(s.score>=50?"mid":"lo");
+    const gapColor=s.gap_pct>0?"color:var(--green)":"color:var(--red)";
+    return `<tr class="${r.isNew?"new-row":""}">
+      <td><span style="color:var(--muted)">${i+1}</span> &nbsp;<b>${fmtSym(r.sym)}</b></td>
+      <td><span class="badge tf">${r.tf}</span></td>
+      <td><b>${fmtPrice(s.price)}</b></td>
+      <td>${fmtPrice(s.maF)}</td>
+      <td>${fmtPrice(s.emaS)}</td>
+      <td style="${gapColor};font-weight:600">${s.gap_pct>0?"+":""}${s.gap_pct.toFixed(4)}%</td>
+      <td>${whenCell(r)}</td>
+      <td>${s.atr_pct.toFixed(3)}%</td>
+      <td>${volEl}</td>
+      <td>${typeBadge}</td>
+      <td>${sigBadge}</td>
+      <td><span class="score ${scCls}">${s.score}</span></td>
+      <td>${r._mtf>1?`<span class="badge mtf">×${r._mtf} TF</span>`:`<span class="vol-no">—</span>`}</td>
+      <td style="color:var(--green)">+${s.tp2_p}%</td>
+      <td style="color:var(--red)">-${s.sl_p}%</td>
+      <td style="color:var(--accent)">1:${s.rr}</td>
+      <td><button onclick="showDetail(${r.id})" style="padding:3px 8px;font-size:11px" aria-label="Open detail">📋</button></td>
+    </tr>`;
+  }).join("");
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  DETAIL
+// ═══════════════════════════════════════════════════════════════
+function sizing(r,c){
+  const s=r.s;
+  const riskUsd=c.capital*c.riskPct/100;
+  const dist=Math.abs(s.price-s.sl);
+  const qty=dist>0?riskUsd/dist:0;
+  const notional=qty*s.price, margin=notional/c.lev;
+  const cv=cvMap[r.sym]||0;
+  const contracts=cv>0?Math.floor(qty/cv):null;
+  const liqPct=100/c.lev, warns=[];
+  if(margin>c.capital) warns.push(`Margin needed (${fmtPrice(margin)}) is more than your capital — reduce risk % or raise leverage.`);
+  if(s.sl_p>=liqPct*0.7) warns.push(`Stop distance (${s.sl_p}%) is close to or beyond the approximate liquidation distance (~${liqPct.toFixed(1)}% at ${c.lev}×). Lower the leverage.`);
+  return {riskUsd,qty,notional,margin,contracts,cv,liqPct,warns};
+}
+function planText(r){
+  const s=r.s, c=cfg(), z=sizing(r,c), buy=s.signal==="BUY";
+  const head=`${fmtSym(r.sym)} ${r.tf} — ${s.type} ${s.signal} (MA ${c.maLen} × EMA ${c.emaLen}, ${c.src} price)`;
+  if(s.type!=="CROSSOVER")
+    return `${head}\nWatch for MA ${c.maLen} to cross ${buy?"above":"below"} EMA ${c.emaLen} (${fmtPrice(s.emaS)}). ETA ~${Math.ceil(s.eta)} bars (${fmtDur(s.eta*MINS_MAP[r.tf])}).\nIf it crosses: SL ${fmtPrice(s.sl)} · TP1 ${fmtPrice(s.tp1)} · TP2 ${fmtPrice(s.tp2)}`;
+  return `${head}\nEntry ${fmtPrice(s.price)}\nSL ${fmtPrice(s.sl)} (${s.sl_p}%)\nTP1 ${fmtPrice(s.tp1)} (${s.tp1_p}%)\nTP2 ${fmtPrice(s.tp2)} (${s.tp2_p}%)\nSize for ${c.riskPct}% risk on $${c.capital}: ${z.qty.toFixed(4)} units${z.contracts!=null?` (~${z.contracts} contracts)`:""}, margin ≈ ${fmtPrice(z.margin)} at ${c.lev}×`;
+}
+function copyPlan(id){
+  const r=allSignals.find(x=>x.id===id); if(!r) return;
+  const t=planText(r);
+  (navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(()=>log("Trade plan copied."),()=>{
+    const ta=document.createElement("textarea"); ta.value=t; document.body.appendChild(ta); ta.select();
+    try{ document.execCommand("copy"); log("Trade plan copied."); }catch(e){}
+    ta.remove();
+  });
+}
+function showDetail(id){
+  const r=allSignals.find(x=>x.id===id); if(!r) return;
+  const s=r.s, c=cfg(), buy=s.signal==="BUY", isCross=s.type==="CROSSOVER";
+  const col=buy?"var(--green)":"var(--red)";
+  const tfm=MINS_MAP[r.tf];
+  $("d-title").innerHTML=`<span style="color:${col}">${fmtSym(r.sym)}</span> &nbsp;·&nbsp; ${r.tf} &nbsp;·&nbsp; ${s.signal} &nbsp;·&nbsp; ${isCross?"🔥 Fresh crossover":"👀 Near cross (watch)"}`;
+
+  let plan="";
+  if(isCross){
+    const z=sizing(r,c);
+    plan=`<div class="trade-box"><h4>Trade plan</h4>
+      <div class="trow"><span class="tk">Action</span><b style="color:${col}">${buy?"LONG / BUY":"SHORT / SELL"}</b></div>
+      <div class="trow"><span class="tk">Entry</span><b>${fmtPrice(s.price)}</b></div>
+      <div class="trow"><span class="tk">Stop loss</span><span style="color:var(--red)">${fmtPrice(s.sl)} (${buy?"-":"+"}${s.sl_p}% · ${c.slM}×ATR)</span></div>
+      <div class="trow"><span class="tk">Target 1</span><span style="color:#86efac">${fmtPrice(s.tp1)} (${buy?"+":"-"}${s.tp1_p}% · ${c.tp1M}×ATR)</span></div>
+      <div class="trow"><span class="tk">Target 2</span><span style="color:var(--green)">${fmtPrice(s.tp2)} (${buy?"+":"-"}${s.tp2_p}% · ${c.tp2M}×ATR)</span></div>
+      <div class="trow"><span class="tk">R:R (TP2)</span><b style="color:var(--accent)">1:${s.rr}</b></div>
+    </div>
+    <div class="trade-box"><h4>Position size — ${c.riskPct}% of $${c.capital} at ${c.lev}×</h4>
+      <div class="trow"><span class="tk">Amount at risk</span><span>${fmtPrice(z.riskUsd)}</span></div>
+      <div class="trow"><span class="tk">Quantity</span><span>${z.qty.toFixed(4)} units${z.contracts!=null?` · ~${z.contracts} contracts (${z.cv} per contract)`:""}</span></div>
+      <div class="trow"><span class="tk">Notional</span><span>${fmtPrice(z.notional)}</span></div>
+      <div class="trow"><span class="tk">Margin needed</span><span>${fmtPrice(z.margin)}</span></div>
+      ${z.warns.map(w=>`<div class="warn">⚠ ${w}</div>`).join("")}
+    </div>`;
+  }else{
+    plan=`<div class="trade-box"><h4>Watch list</h4>
+      <div class="trow"><span class="tk">Waiting for</span><b style="color:var(--yellow)">MA ${c.maLen} to cross ${buy?"above":"below"} EMA ${c.emaLen} (${fmtPrice(s.emaS)})</b></div>
+      <div class="trow"><span class="tk">Gap now</span><span>${s.gap_pct>0?"+":""}${s.gap_pct.toFixed(4)}%</span></div>
+      <div class="trow"><span class="tk">Estimated time</span><span>~${Math.ceil(s.eta)} bars (${fmtDur(s.eta*tfm)}) at the current closing speed</span></div>
+      <div class="trow"><span class="tk">If it crosses now</span><span>SL ${fmtPrice(s.sl)} · TP2 ${fmtPrice(s.tp2)}</span></div>
+    </div>`;
+  }
+
+  $("d-content").innerHTML=`
+  <div class="dl-grid">
+    <div class="dl-row"><span class="k">Price</span><span class="v">${fmtPrice(s.price)}</span></div>
+    <div class="dl-row"><span class="k">Score</span><span class="v">${s.score} / 100</span></div>
+    <div class="dl-row"><span class="k">MA ${c.maLen}</span><span class="v">${fmtPrice(s.maF)}</span></div>
+    <div class="dl-row"><span class="k">EMA ${c.emaLen}</span><span class="v">${fmtPrice(s.emaS)}</span></div>
+    <div class="dl-row"><span class="k">Gap</span><span class="v" style="color:${s.gap_pct>0?"var(--green)":"var(--red)"}">${s.gap_pct>0?"+":""}${s.gap_pct.toFixed(4)}%</span></div>
+    <div class="dl-row"><span class="k">ATR(14)</span><span class="v">${fmtPrice(s.atr)} (${s.atr_pct.toFixed(3)}%)</span></div>
+    <div class="dl-row"><span class="k">Candle confirms direction</span><span class="v">${s.confirm?"✅ Yes":"— No"}</span></div>
+    <div class="dl-row"><span class="k">EMA ${c.emaLen} slope</span><span class="v" style="color:${s.slopeOk?"var(--green)":"var(--yellow)"}">${s.slope>0?"+":""}${s.slope}% ${s.slopeOk?"(with trade)":"(against trade)"}</span></div>
+    <div class="dl-row"><span class="k">Volume</span><span class="v">${!s.vol_avail?"n/a (mark price)":(s.vol_spike?"✅ Spike":"~ Normal")}</span></div>
+    <div class="dl-row"><span class="k">Candles used</span><span class="v">${s.bars.toLocaleString()}</span></div>
+  </div>
+  <hr class="dl-divider"/>
+  <canvas id="d-chart" width="520" height="200"></canvas>
+  <div class="legend"><span><i style="background:#94a3b8"></i>Price</span><span><i style="background:#fbbf24"></i>MA ${c.maLen}</span><span><i style="background:#60a5fa"></i>EMA ${c.emaLen}</span><span>Last ${s.series.c.length} bars</span></div>
+  ${plan}
+  <hr class="dl-divider"/>
+  <div style="display:flex;gap:8px;justify-content:space-between;align-items:center;flex-wrap:wrap">
+    <span style="font-size:11px;color:var(--muted)">${r.tf} · ${c.src} price · ${new Date().toLocaleTimeString()}</span>
+    <button class="ghost" onclick="copyPlan(${r.id})">Copy plan</button>
+  </div>`;
+  $("detail-overlay").classList.add("open");
+  drawChart($("d-chart"),s);
+}
+function closeDetail(){ $("detail-overlay").classList.remove("open"); }
+
+function drawChart(cv,s){
+  const ctx=cv.getContext("2d"), W=cv.width, H=cv.height;
+  ctx.clearRect(0,0,W,H);
+  const {c,maF,emaS}=s.series, n=c.length;
+  const vals=[...c,...maF,...emaS].filter(v=>!isNaN(v));
+  let mn=Math.min(...vals), mx=Math.max(...vals);
+  const pad=(mx-mn)*0.08||mx*0.01; mn-=pad; mx+=pad;
+  const X=i=>10+i*(W-20)/(n-1), Y=v=>H-10-(v-mn)/(mx-mn)*(H-20);
+  ctx.strokeStyle="#1f2937"; ctx.lineWidth=1;
+  for(let g=0;g<=4;g++){ const y=10+g*(H-20)/4; ctx.beginPath(); ctx.moveTo(10,y); ctx.lineTo(W-10,y); ctx.stroke(); }
+  function line(arr,color,w){
+    ctx.strokeStyle=color; ctx.lineWidth=w; ctx.beginPath(); let pen=false;
+    arr.forEach((v,i)=>{ if(isNaN(v)){ pen=false; return; } if(!pen){ ctx.moveTo(X(i),Y(v)); pen=true; } else ctx.lineTo(X(i),Y(v)); });
+    ctx.stroke();
+  }
+  line(c,"#94a3b8",1); line(emaS,"#60a5fa",2); line(maF,"#fbbf24",1.5);
+  if(s.crossIdx>=0&&s.crossIdx<n){
+    const x=X(s.crossIdx), y=Y(emaS[s.crossIdx]);
+    ctx.setLineDash([4,4]); ctx.strokeStyle="#64748b"; ctx.beginPath(); ctx.moveTo(x,10); ctx.lineTo(x,H-10); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle=s.signal==="BUY"?"#22c55e":"#ef4444"; ctx.beginPath(); ctx.arc(x,y,4.5,0,Math.PI*2); ctx.fill();
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  EXPORT
+// ═══════════════════════════════════════════════════════════════
+function exportCSV(){
+  const rows=getFiltered();
+  if(!rows.length){ log("Nothing to export."); return; }
+  const c=cfg();
+  const head=["pair","tf","type","signal","score","mtf","price",`ma${c.maLen}`,`ema${c.emaLen}`,"gap_pct","bars_ago","eta_bars","atr_pct","volume_spike","sl","tp1","tp2","sl_pct","tp2_pct","rr"];
+  const lines=rows.map(r=>{ const s=r.s; return [r.sym,r.tf,s.type,s.signal,s.score,r._mtf,s.price,s.maF,s.emaS,s.gap_pct,
+    s.type==="CROSSOVER"?s.barsAgo:"",s.type==="CROSSOVER"?"":round(s.eta,1),s.atr_pct,s.vol_avail?s.vol_spike:"n/a",
+    s.sl,s.tp1,s.tp2,s.sl_p,s.tp2_p,s.rr].join(","); });
+  const blob=new Blob([head.join(",")+"\n"+lines.join("\n")],{type:"text/csv"});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob); a.download=`ma${c.maLen}_ema${c.emaLen}_${Date.now()}.csv`; a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════════════════
+function init(){
+  $("tf-chips").innerHTML=ALL_TFS.map(t=>`<label class="chip"><input type="checkbox" value="${t}"${t==="5m"?" checked":""}><span>${t}</span></label>`).join("");
+  loadSettings();
+  refreshTfFilter(selectedTfs());
+  document.querySelectorAll("input,select").forEach(el=>el.addEventListener("change",saveSettings));
+  $("notif-chk").addEventListener("change",e=>{
+    if(e.target.checked&&"Notification" in window&&Notification.permission==="default") Notification.requestPermission();
+  });
+  document.addEventListener("keydown",e=>{ if(e.key==="Escape") closeDetail(); });
+}
+init();
+</script>
+</body>
+</html>
