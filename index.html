@@ -328,6 +328,12 @@ function fmtSym(sym){
   if(sym.endsWith("USD")&&!sym.endsWith("USDT")) return sym.slice(0,-3)+"/USD";
   return sym;
 }
+function deltaLink(sym){
+  let base=sym;
+  if(sym.endsWith("USDT")) base=sym.slice(0,-4);
+  else if(sym.endsWith("USD")) base=sym.slice(0,-3);
+  return `https://www.delta.exchange/app/futures/trade/${encodeURIComponent(base)}/${encodeURIComponent(sym)}`;
+}
 function fmtDur(mins){
   mins=Math.round(mins);
   if(mins<60) return mins+"m";
@@ -822,7 +828,8 @@ function renderTable(){
     const scCls=s.score>=70?"hi":(s.score>=50?"mid":"lo");
     const gapColor=s.gap_pct>0?"color:var(--green)":"color:var(--red)";
     return `<tr class="${r.isNew?"new-row":""}">
-      <td><span style="color:var(--muted)">${i+1}</span> &nbsp;<b>${fmtSym(r.sym)}</b></td>
+      <td><span style="color:var(--muted)">${i+1}</span> &nbsp;<b>${fmtSym(r.sym)}</b>
+        <a href="${deltaLink(r.sym)}" target="_blank" rel="noopener noreferrer" title="Open ${fmtSym(r.sym)} on Delta Exchange" style="margin-left:6px;color:var(--accent);text-decoration:none">↗</a></td>
       <td><span class="badge tf">${r.tf}</span></td>
       <td><b>${fmtPrice(s.price)}</b></td>
       <td>${fmtPrice(s.maF)}</td>
@@ -929,7 +936,10 @@ function showDetail(id){
   <hr class="dl-divider"/>
   <div style="display:flex;gap:8px;justify-content:space-between;align-items:center;flex-wrap:wrap">
     <span style="font-size:11px;color:var(--muted)">${r.tf} · ${c.src} price · ${new Date().toLocaleTimeString()}</span>
-    <button class="ghost" onclick="copyPlan(${r.id})">Copy plan</button>
+    <span style="display:flex;gap:8px">
+      <a href="${deltaLink(r.sym)}" target="_blank" rel="noopener noreferrer"><button class="ghost">Open on Delta ↗</button></a>
+      <button class="ghost" onclick="copyPlan(${r.id})">Copy plan</button>
+    </span>
   </div>`;
   $("detail-overlay").classList.add("open");
   drawChart($("d-chart"),s);
